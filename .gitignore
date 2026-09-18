@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+state/*.db*
+logs/*
+!logs/.gitkeep
+data/raw/youtube/*
+!data/raw/youtube/.gitkeep

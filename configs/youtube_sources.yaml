@@ -1,0 +1,30 @@
+poll_interval_sec: 180
+selection:
+  mode: allowlist  # Chỉ xử lý video_ids bên dưới; dùng 'all' nếu muốn cả channel.
+output:
+  root_dir: data/raw/youtube
+download:
+  max_height: 1080
+  merge_format: mp4
+live:
+  try_from_start: true
+  recovery_from_replay: true
+retry:
+  max_attempts: 3
+  retry_delay_sec: 60
+channels:
+  - id: "0511_vietnam"
+    url: "https://www.youtube.com/@0511.VietNam"
+    enabled: true
+    video_ids: []  # Thêm ID hoặc URL YouTube của từng VOD/live muốn theo dõi.
+    live_keywords: [
+      "Hùng Vương", 
+      "Tam Kỳ", 
+      "Cổng trường", 
+      "Nguyễn Huệ", 
+      "cổng sau",
+      "bệnh viện c", 
+      
+    ]
+    vod_keywords: []
+    title_keywords: []
