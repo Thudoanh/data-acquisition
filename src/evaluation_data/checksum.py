@@ -1,0 +1,1 @@
+from data_acquisition.checksum import sha256_file

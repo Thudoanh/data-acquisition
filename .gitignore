@@ -7,3 +7,12 @@ logs/*
 !logs/.gitkeep
 data/raw/youtube/*
 !data/raw/youtube/.gitkeep
+data/inventory/
+data/review/
+data/clips/
+data/annotations/
+data/zones/
+data/validation/
+data/evaluation/
+data/raw/kaggle/
+data/raw/local/

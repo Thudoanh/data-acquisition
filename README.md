@@ -244,4 +244,46 @@ Unit tests không tải video thật.
 - Chế độ lọc từ khóa và `all` xem 50 mục mới nhất trên mỗi tab mỗi vòng poll; các mục cũ hơn cần được chọn bằng URL/ID. ID chọn trực tiếp không bị giới hạn bởi 50 mục này.
 - Một bản ghi live bắt đầu muộn chỉ được xem là đầy đủ khi replay recovery thành công. Replay có thể chưa được YouTube tạo ngay sau khi live kết thúc; watcher sẽ thử ở các vòng poll tiếp theo, tối đa số retry cấu hình cho một đợt recovery.
 - `yt-dlp --live-from-start` là tính năng thử nghiệm và khả năng lấy từ đầu tùy stream. Các fragment bị mất do mạng hoặc replay bị thiếu không thể được pipeline tự chứng minh là hoàn toàn đầy đủ.
-- Không có segmenting, dashboard, inference, ROI/event annotation, video trimming, RTSP, Kaggle hay tìm kiếm toàn YouTube ở phase này.
+- Phần acquisition không thực hiện segmenting, dashboard, inference, ROI/event annotation, video trimming, RTSP, Kaggle hay tìm kiếm toàn YouTube; các bước chuẩn bị dữ liệu đánh giá được mô tả ở mục tiếp theo.
+
+## Chuẩn bị dữ liệu đánh giá: VN-SIDEWALK-EVAL-v1
+
+Repo có hai phần xử lý dữ liệu. Phần acquisition thu thập video YouTube vào `data/raw/youtube`, kèm catalog SQLite và các file `metadata.json`. Module evaluation quét dữ liệu này cùng các thư mục raw Kaggle/local tùy chọn để chuẩn bị bộ dữ liệu đánh giá toàn pipeline. Module tái sử dụng metadata acquisition hiện có mà không thay đổi CLI hay output của acquisition.
+
+Quy trình: video raw → lập inventory → kiểm tra video raw → lọc theo metadata → tự tạo khoảng clip ứng viên → review từng khoảng → cắt clip → gán nhãn scenario → đăng ký camera/view → vẽ ROI thủ công → chú thích event → chia dev/test theo nhóm → kiểm tra chéo → đóng băng phiên bản.
+
+Roboflow Vietnam Vehicle Detection dùng cho huấn luyện và đánh giá detector. VN-SIDEWALK-EVAL-v1 dùng để đánh giá toàn pipeline phát hiện hành vi chiếm dụng khu vực. Không dùng tập test đã đóng băng để huấn luyện, fine-tune hoặc điều chỉnh ngưỡng. Các lớp có thể tạo event vi phạm là `motorcycle`, `car`, `bus` và `truck`; `person` chỉ cung cấp ngữ cảnh. Clip âm tính vẫn có scenario âm tính đã duyệt và ROI, nhưng không có event.
+
+Cài thư viện Python bằng `pip install -r requirements.txt`; cài `ffmpeg` và `ffprobe` trên máy để đọc thông tin và cắt video. Các cửa sổ OpenCV cần môi trường desktop có giao diện đồ họa. Video raw được giữ nguyên. Các file trung gian trong `data/` không được đưa vào Git.
+
+Bắt đầu với dữ liệu raw đã có:
+
+```bash
+python scripts/evaluation/inventory_videos.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/validate_raw_videos.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/filter_review_candidates.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/review_videos.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/review_clip_candidates.py --config configs/evaluation/evaluation_dataset.yaml
+```
+
+Khi cùng một `source_video_id` có nhiều file (ví dụ `source.mp4` và bản chuyển mã `source_quicktime.mp4`), bước lọc đánh dấu các bản còn lại là `duplicate_source_video_id` và ưu tiên bản `source.mp4` hợp lệ. `review_videos.py` làm mới cờ lọc metadata rồi tự tạo các khoảng thời gian ứng viên trong `data/review/clip_candidates.csv` từ video đã qua kiểm tra và lọc metadata; lệnh này chưa tạo file clip và không mở giao diện review. Mặc định, clip dài tối đa 180 giây, mục tiêu 120 giây và chồng lấn 10 giây. Đoạn cuối ngắn hơn 30 giây được gộp vào clip trước nếu tổng độ dài vẫn không quá 180 giây. Video ngắn hơn 30 giây không sinh clip. Các giá trị nằm trong mục `clip` của config. Chạy lại lệnh giữ nguyên quyết định `keep`/`reject` của những khoảng không đổi.
+
+`review_clip_candidates.py` dùng ffmpeg để giải mã từng khoảng ứng viên và OpenCV để hiển thị, nên vẫn xem được các video mà `cv2.VideoCapture` không mở được. Lệnh này cần cả ffmpeg và môi trường desktop có giao diện đồ họa. Phím trong công cụ review: Space phát/tạm dừng; Left/Right tua 5 giây; K giữ clip ứng viên; R loại clip ứng viên; N/P chuyển sang clip kế tiếp/trước đó; Q thoát. Quyết định `keep`/`reject` được lưu ngay sau mỗi thao tác; khoảng mới có trạng thái `pending`. Chỉ các khoảng `keep` mới được cắt. Có thể sửa cột `status` trong `data/review/clip_candidates.csv` nếu không dùng giao diện OpenCV. Khi review, cần tránh giữ các clip chồng lấn không cần thiết; nếu cùng một event xuất hiện ở hai clip được giữ, phải chú thích event tương ứng trên từng clip. Sau đó chạy:
+
+```bash
+python scripts/evaluation/trim_candidates.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/register_camera.py --clip-id CLIP_ID --camera-id CAMERA_ID --view-id VIEW_ID --session-id SESSION_ID
+python scripts/evaluation/label_scenario.py --clip-id CLIP_ID --scenario pass_through --reviewer NAME
+python scripts/evaluation/define_roi.py --clip-id CLIP_ID
+python scripts/evaluation/annotate_events.py --clip-id CLIP_ID
+python scripts/evaluation/split_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/validate_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/freeze_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
+python scripts/evaluation/inspect_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
+```
+
+Đăng ký mỗi góc nhìn camera cố định theo độ phân giải; tạo `view_id` mới nếu góc quay hoặc độ phân giải thay đổi. Phím vẽ ROI: 1–4 chọn loại vùng, nhấp chuột để đặt đỉnh, U hoàn tác, R xóa các điểm đang vẽ, S lưu đa giác, Left/Right tua video, Q thoát. Phím chú thích event: S đánh dấu lúc episode bắt đầu, V đánh dấu lúc đủ điều kiện vi phạm, E đánh dấu lúc episode kết thúc, A thêm event, Left/Right tua video, Q thoát. Không đánh dấu E nếu episode vẫn đang diễn ra khi clip kết thúc. Với clip âm tính, để `data/annotations/events.csv` trống hoặc không tạo file. Nếu cần `bbox_keyframes`, sửa trường tương ứng trong CSV thành mảng JSON gồm các đối tượng `{time_sec, bbox}`. Các dòng scenario và event được thêm bằng CLI có trạng thái `approved`; quy trình review độc lập vẫn cần do nhóm dự án thực hiện.
+
+Các file trung gian chính: `data/inventory/video_catalog.csv` lưu định danh nguồn, metadata acquisition, thông tin video đọc bằng ffprobe và SHA-256; `data/review/review_candidates.csv` lưu quyết định review; `data/review/clip_candidates.csv` lưu các khoảng ứng viên; `data/clips/clips_manifest.csv` ánh xạ clip tới video nguồn và camera/view; `data/annotations/scenarios.csv`, `events.csv` và `split_manifest.csv` lưu nhãn scenario, event GT và phân chia dữ liệu; `data/zones/camera_registry.csv` cùng một file JSON cho mỗi camera/view lưu ROI; `data/validation/evaluation_validation.json` và `.csv` lưu lỗi/cảnh báo theo mức độ. Thư mục cuối cùng gồm bản sao video, event dạng JSONL, scenario, manifest split và nguồn, zone, báo cáo kiểm tra, config, checksum và freeze manifest.
+
+Lệnh freeze kiểm tra các nguồn được dùng, clip, nhãn đã duyệt, thời gian event, ROI, checksum và rò rỉ dữ liệu giữa các split. Lệnh sẽ thất bại nếu có bất kỳ lỗi `ERROR` nào hoặc phiên bản đích đã tồn tại. Để thay đổi bộ dữ liệu đã đóng băng, hãy đổi `dataset.version` trong config và tạo phiên bản mới. Mặc định, dữ liệu được chia theo nhóm `source_video_id`; đặt `split.grouping_key` thành `camera_id + session_id` khi hai trường này được gán đầy đủ và đáng tin cậy.

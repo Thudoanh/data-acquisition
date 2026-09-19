@@ -1,0 +1,31 @@
+dataset:
+  name: VN-SIDEWALK-EVAL
+  version: v1
+paths:
+  work_root: data
+input:
+  raw_video_roots: [data/raw/youtube, data/raw/kaggle, data/raw/local]
+  acquisition_catalog: state/catalog.db
+clip:
+  min_duration_sec: 30
+  max_duration_sec: 180
+  target_duration_sec: 120
+  overlap_sec: 10
+validation:
+  min_fps: 5
+  min_width: 320
+  min_height: 240
+split:
+  dev_ratio: 0.7
+  test_ratio: 0.3
+  seed: 42
+  grouping_key: source_video_id
+violation:
+  target_classes: [motorcycle, car, bus, truck]
+  label: SUSPECTED_AREA_OCCUPATION
+scenario_labels:
+  positive: [sidewalk_parking, sidewalk_occupation, vehicle_enters_and_remains, multiple_vehicle_occupation]
+  negative: [pass_through, short_stop, driveway_crossing, outside_roi, allowed_zone, ignore_zone, person_only]
+  hard: [boundary, occlusion, crowded, nighttime, low_light]
+freeze:
+  output_root: data/evaluation
