@@ -199,16 +199,24 @@ class Catalog:
             row = db.execute("SELECT * FROM jobs WHERE video_id=? ORDER BY id DESC LIMIT 1", (video_id,)).fetchone()
             return dict(row) if row else None
 
-    def recover_interrupted(self) -> int:
+    def recover_interrupted(self, video_id: str | None = None) -> int:
+        """Requeue interrupted work globally or for one explicitly selected item."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            rows = db.execute("SELECT DISTINCT video_id FROM jobs WHERE status='RUNNING'").fetchall()
-            db.execute("UPDATE jobs SET status='QUEUED',updated_at=? WHERE status='RUNNING'", (utc_now(),))
+            suffix = " AND video_id=?" if video_id is not None else ""
+            args = (video_id,) if video_id is not None else ()
+            rows = db.execute("SELECT DISTINCT video_id FROM jobs WHERE status='RUNNING'" + suffix, args).fetchall()
+            now = utc_now()
+            db.execute("UPDATE jobs SET status='QUEUED',updated_at=? WHERE status='RUNNING'" + suffix,
+                       (now, *args))
+            item_suffix = " AND video_id=?" if video_id is not None else ""
             db.execute("""UPDATE youtube_items SET local_status='QUEUED',updated_at=?
                 WHERE video_id IN (SELECT video_id FROM jobs WHERE status='QUEUED')
-                AND local_status IN ('DOWNLOADING','RECORDING','VALIDATING')""", (utc_now(),))
+                AND local_status IN ('DOWNLOADING','RECORDING','VALIDATING')""" + item_suffix,
+                       (now, *args))
             # A process may have died outside a tracked job.
             db.execute("""UPDATE youtube_items SET local_status='RETRY',updated_at=?
                 WHERE local_status IN ('DOWNLOADING','RECORDING','VALIDATING')
-                AND video_id NOT IN (SELECT video_id FROM jobs WHERE status IN ('QUEUED','RUNNING'))""", (utc_now(),))
+                AND video_id NOT IN (SELECT video_id FROM jobs WHERE status IN ('QUEUED','RUNNING'))""" + item_suffix,
+                       (now, *args))
             return len(rows)

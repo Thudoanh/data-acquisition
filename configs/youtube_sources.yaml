@@ -16,7 +16,8 @@ channels:
   - id: "0511_vietnam"
     url: "https://www.youtube.com/@0511.VietNam"
     enabled: true
-    video_ids: []  # Thêm ID hoặc URL YouTube của từng VOD/live muốn theo dõi.
+    video_ids:
+      - oif_zZFIfB4  # Camera cổng sau bệnh viện C Đà Nẵng
     live_keywords: [
       "Hùng Vương", 
       "Tam Kỳ", 

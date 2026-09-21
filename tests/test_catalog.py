@@ -35,6 +35,18 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(self.catalog.get_item("abc")["local_status"],"QUEUED")
         self.assertEqual(self.catalog.claim_job()["id"],claimed["id"])
 
+    def test_recover_only_selected_interrupted_job(self):
+        for video_id in ("selected", "other"):
+            self.catalog.upsert_item(item(video_id))
+            self.catalog.enqueue_job(video_id,JobType.VOD_DOWNLOAD)
+            self.catalog.claim_job(video_id)
+            self.catalog.update_local_status(video_id,LocalStatus.DOWNLOADING)
+        self.assertEqual(self.catalog.recover_interrupted("selected"),1)
+        self.assertEqual(self.catalog.get_item("selected")["local_status"],"QUEUED")
+        self.assertEqual(self.catalog.get_item("other")["local_status"],"DOWNLOADING")
+        self.assertEqual(self.catalog.latest_job("selected")["status"],"QUEUED")
+        self.assertEqual(self.catalog.latest_job("other")["status"],"RUNNING")
+
     def test_completion_requires_validation(self):
         self.catalog.upsert_item(item())
         with self.assertRaises(ValueError):

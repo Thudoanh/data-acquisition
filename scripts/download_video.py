@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("video", nargs="?", help="YouTube watch/live/shorts URL or 11-character video ID")
     parser.add_argument("--file", type=Path, help="UTF-8 text file with one YouTube URL or ID per line")
     parser.add_argument("--channel", help="Configured channel ID; needed for new videos if multiple channels exist")
+    parser.add_argument("--recover-interrupted", action="store_true",
+                        help="Requeue a stale RUNNING job for only the requested video(s)")
     parser.add_argument("--config", default=str(ROOT / "configs" / "youtube_sources.yaml"))
     args = parser.parse_args()
     if (args.video is None) == (args.file is None):
@@ -78,6 +80,10 @@ def main() -> None:
                     print(f"SKIPPED {video_id}: duplicate in list")
                     continue
                 seen.add(video_id)
+                if args.recover_interrupted:
+                    recovered = catalog.recover_interrupted(video_id)
+                    if recovered:
+                        print(f"RECOVERED {video_id}: requeued {recovered} interrupted job")
                 result, message = download_one(video_id, args.channel, config, catalog, client, scheduler)
                 print(f"{result} {video_id}: {message}")
                 if result == "COMPLETED":

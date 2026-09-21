@@ -175,7 +175,70 @@ python scripts/inspect_catalog.py --status COMPLETED
 
 Lệnh restore chép video về `output.root_dir` của project mới và cập nhật `local_path` trong catalog. Nó yêu cầu catalog chưa tồn tại và thư mục output còn trống để tránh ghi đè dữ liệu hiện có. Nếu dùng dịch vụ đám mây, hãy đợi thư mục backup đồng bộ xong rồi mới restore. Các item chưa hoàn tất vẫn có trong catalog, nhưng media dở dang không được chuyển. Giữ bản backup riêng; lệnh restore không xóa nó.
 
-### G. MP4 báo không tương thích với QuickTime
+### G. Chuyển toàn bộ repo và dữ liệu sang máy khác
+
+Cách này chuyển cả source code, Git history, raw video, clip đã cắt, manifest, annotation, ROI, validation và SQLite catalog. Máy mới có thể tiếp tục acquisition hoặc trim từ checkpoint hiện tại mà không cần crawl và cắt lại dữ liệu đã hoàn thành.
+
+Trước khi copy, dừng `trim_candidates.py`, downloader và watcher bằng `Ctrl+C`. Chờ các tiến trình thoát hoàn toàn để `clips_manifest.csv` và `state/catalog.db` ở trạng thái nhất quán. Từ máy hiện tại, chạy:
+
+```bash
+rsync -a --partial --info=progress2 \
+  --exclude='.venv/' \
+  --exclude='__pycache__/' \
+  --exclude='.DS_Store' \
+  /Users/thoai/workspace/data_acquisition/ \
+  USER@MAY_MOI:/DUONG_DAN/data_acquisition/
+```
+
+Thay `USER@MAY_MOI` bằng tài khoản và hostname/IP của máy mới; thay `/DUONG_DAN/data_acquisition/` bằng thư mục đích. Dấu `/` cuối đường dẫn nguồn có nghĩa là copy nội dung repo vào đúng thư mục đích. Có thể chạy lại cùng lệnh nếu kết nối bị ngắt; `rsync` tiếp tục truyền các file còn thiếu. Không thêm `--delete` nếu chưa chủ động muốn xóa file chỉ có trên máy đích.
+
+Lệnh copy toàn bộ repo, trong đó có:
+
+```text
+.git/
+configs/
+scripts/
+src/
+tests/
+state/catalog.db
+data/raw/
+data/inventory/
+data/review/
+data/clips/
+data/annotations/
+data/zones/
+data/validation/
+data/evaluation/
+```
+
+`.venv` không được copy vì có thể phụ thuộc hệ điều hành, kiến trúc CPU và đường dẫn tuyệt đối của máy cũ. Trên máy mới, tạo lại môi trường và cài dependency:
+
+```bash
+cd /DUONG_DAN/data_acquisition
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Cài `ffmpeg` và `ffprobe` trên máy mới nếu hai lệnh này chưa có, rồi kiểm tra dữ liệu clip đã chuyển:
+
+```bash
+python scripts/evaluation/trim_candidates.py \
+  --config configs/evaluation/evaluation_dataset.yaml \
+  --reconcile-only
+```
+
+Nếu còn clip chưa hoàn thành, tiếp tục trim mà không encode lại clip đã hợp lệ:
+
+```bash
+caffeinate -i python scripts/evaluation/trim_candidates.py \
+  --config configs/evaluation/evaluation_dataset.yaml \
+  2>&1 | tee data/clips/trim.log
+```
+
+`caffeinate` dùng trên macOS để giữ máy thức. Trên hệ điều hành khác, bỏ phần `caffeinate -i`. Các manifest sử dụng đường dẫn tương đối với project root nên repo trên máy mới không cần nằm tại cùng đường dẫn tuyệt đối như máy cũ.
+
+### H. MP4 báo không tương thích với QuickTime
 
 Đuôi `.mp4` là container; codec hình bên trong có thể là AV1. QuickTime trên một số máy Mac không phát được AV1. Lượt tải mới ưu tiên H.264/AAC nếu YouTube có định dạng này; nếu không có, downloader vẫn dùng định dạng khác để giữ video. File đã tải trước khi đổi code không tự thay đổi.
 
@@ -272,6 +335,8 @@ Khi cùng một `source_video_id` có nhiều file (ví dụ `source.mp4` và b�
 
 ```bash
 python scripts/evaluation/trim_candidates.py --config configs/evaluation/evaluation_dataset.yaml
+# Chỉ kiểm kê lại tiến độ sau khi một lần cắt bị ngắt:
+python scripts/evaluation/trim_candidates.py --config configs/evaluation/evaluation_dataset.yaml --reconcile-only
 python scripts/evaluation/register_camera.py --clip-id CLIP_ID --camera-id CAMERA_ID --view-id VIEW_ID --session-id SESSION_ID
 python scripts/evaluation/label_scenario.py --clip-id CLIP_ID --scenario pass_through --reviewer NAME
 python scripts/evaluation/define_roi.py --clip-id CLIP_ID
@@ -281,6 +346,8 @@ python scripts/evaluation/validate_evaluation_set.py --config configs/evaluation
 python scripts/evaluation/freeze_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
 python scripts/evaluation/inspect_evaluation_set.py --config configs/evaluation/evaluation_dataset.yaml
 ```
+
+`trim_candidates.py` ghi `clips_manifest.csv` sau mỗi clip hoàn chỉnh. Khi chạy lại sau khi bị ngắt, lệnh kiểm tra checksum và thời lượng của file đã hoàn thành rồi tiếp tục từ clip chưa xong; file dở dang chỉ bị thay sau khi bản cắt mới vượt qua kiểm tra. Tùy chọn `--reconcile-only` chỉ phục hồi manifest và báo file dở dang, không chạy ffmpeg để cắt thêm.
 
 Đăng ký mỗi góc nhìn camera cố định theo độ phân giải; tạo `view_id` mới nếu góc quay hoặc độ phân giải thay đổi. Phím vẽ ROI: 1–4 chọn loại vùng, nhấp chuột để đặt đỉnh, U hoàn tác, R xóa các điểm đang vẽ, S lưu đa giác, Left/Right tua video, Q thoát. Phím chú thích event: S đánh dấu lúc episode bắt đầu, V đánh dấu lúc đủ điều kiện vi phạm, E đánh dấu lúc episode kết thúc, A thêm event, Left/Right tua video, Q thoát. Không đánh dấu E nếu episode vẫn đang diễn ra khi clip kết thúc. Với clip âm tính, để `data/annotations/events.csv` trống hoặc không tạo file. Nếu cần `bbox_keyframes`, sửa trường tương ứng trong CSV thành mảng JSON gồm các đối tượng `{time_sec, bbox}`. Các dòng scenario và event được thêm bằng CLI có trạng thái `approved`; quy trình review độc lập vẫn cần do nhóm dự án thực hiện.
 
