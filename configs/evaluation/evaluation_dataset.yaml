@@ -11,6 +11,69 @@ clip:
   max_duration_sec: 180
   target_duration_sec: 120
   overlap_sec: 10
+qc:
+  input_dir: data/clips
+  output_dir: data/processed/qc
+  duration_warning_min_sec: 30
+  duration_warning_max_sec: 180
+  fps_relative_tolerance: 0.02
+  frame_duration_tolerance_sec: 1.0
+  frame_duration_tolerance_ratio: 0.02
+  overlap_tolerance_sec: 0.5
+metadata:
+  manifest_path: data/clips/clips_manifest.csv
+  inventory_path: data/processed/qc/clips_inventory.csv
+  source_catalog_path: data/inventory/video_catalog.csv
+  source_review_path: data/review/review_candidates.csv
+  clip_dir: data/clips
+  output_dir: data/processed/metadata
+  unresolved_camera_value: UNRESOLVED
+  source_camera_mapping: {}
+  timestamp_tolerance_sec: 0.001
+  media_tolerance: 0.001
+selection:
+  candidate_path: data/processed/metadata/clip_selection_candidates.csv
+  canonical_metadata_path: data/processed/metadata/clips_metadata.csv
+  feature_cache_path: data/processed/metadata/clip_feature_cache.csv
+  analysis_summary_path: data/processed/metadata/candidate_analysis_summary.json
+  output_dir: data/processed/selection
+  expected_candidates: 472
+  expected_sources: 3
+  sample_frames: 12
+  analysis_width: 320
+  workers: 4
+  candidate_pool_size: 110
+  final_shortlist_min: 75
+  final_shortlist_max: 90
+  keyframes_per_clip: 5
+  source_minimum: 20
+  source_maximum_fraction: 0.50
+  event_thresholds: {low_max: 0.24, high_min: 0.36}
+  hardcase_tag_threshold: 0.65
+  score_weights:
+    event_likelihood: 0.42
+    hardcase: 0.28
+    diversity: 0.18
+    activity: 0.12
+  event_weights:
+    foreground_occupancy: 0.34
+    activity: 0.27
+    persistence: 0.21
+    visual_variation: 0.18
+  hardcase_weights:
+    small_far: 0.18
+    occlusion: 0.14
+    boundary_edge: 0.14
+    blur: 0.16
+    crowded: 0.16
+    fast_motion: 0.12
+    low_light: 0.10
+  selection_level_minimums: {LOW: 18, MEDIUM: 30, HIGH: 18}
+  selected_hardcase_minimum: 25
+  selected_normal_minimum: 25
+  temporal_adjacency_sec: 11.0
+  adjacent_similarity_threshold: 0.86
+  content_similarity_threshold: 0.95
 validation:
   min_fps: 5
   min_width: 320

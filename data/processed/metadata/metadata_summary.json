@@ -1,0 +1,38 @@
+{
+  "source_of_truth": "data/clips/clips_manifest.csv",
+  "filesystem_checksum_verification": true,
+  "total_clips": 472,
+  "distinct_source_count": 3,
+  "distinct_resolved_camera_count": 0,
+  "unresolved_camera_count": 472,
+  "unresolved_camera_source_count": 3,
+  "clips_per_source": {
+    "LF_ZmCAo38w": 66,
+    "YppQ6BEHAKY": 66,
+    "interrupted_2026-09-17": 340
+  },
+  "total_duration_sec_per_source": {
+    "LF_ZmCAo38w": 7851.668005,
+    "YppQ6BEHAKY": 7855.059002,
+    "interrupted_2026-09-17": 40727.0
+  },
+  "total_dataset_duration_sec": 56433.727007,
+  "metadata_status_counts": {
+    "PASS": 0,
+    "WARNING": 472,
+    "FAIL": 0
+  },
+  "validation_severity_counts": {
+    "INFO": 0,
+    "WARNING": 472,
+    "FAIL": 0
+  },
+  "checksum_mismatch_count": 0,
+  "orphan_count": 0,
+  "validation_issue_counts": {
+    "UNRESOLVED_CAMERA": 472
+  },
+  "source_registry_count": 3,
+  "clip_selection_candidate_count": 472,
+  "selection_signals_computed_count": 0
+}

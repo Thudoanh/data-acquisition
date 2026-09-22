@@ -1,0 +1,4 @@
+source_id,source_video_id,source_path,camera_id,status,evidence,notes
+LF_ZmCAo38w,LF_ZmCAo38w,data/raw/youtube/0511_vietnam/LF_ZmCAo38w/source.mp4,UNRESOLVED,UNRESOLVED,"P0 manifest, source catalog, and explicit config mapping contain no camera_id",Resolve only from verified camera metadata; do not infer camera_id from source_id or file order.
+YppQ6BEHAKY,YppQ6BEHAKY,data/raw/youtube/0511_vietnam/YppQ6BEHAKY/source.mp4,UNRESOLVED,UNRESOLVED,"P0 manifest, source catalog, and explicit config mapping contain no camera_id",Resolve only from verified camera metadata; do not infer camera_id from source_id or file order.
+interrupted_2026-09-17,NUGc3nLuGsI,data/raw/youtube/0511_vietnam/NUGc3nLuGsI/recovered/interrupted_2026-09-17.mp4,UNRESOLVED,UNRESOLVED,"P0 manifest, source catalog, and explicit config mapping contain no camera_id",Resolve only from verified camera metadata; do not infer camera_id from source_id or file order.
